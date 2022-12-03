@@ -35,26 +35,30 @@ def consume_frames(q):
     framebuffer = np.ndarray(shape, dtype, buffer=shm.buf) 
     try:
         while True:
-            rgb_tensor = tf.convert_to_tensor(framebuffer, dtype=tf.uint8)
+            rgb_tensor = tf.convert_to_tensor(framebuffer, dtype=tf.float32)
+            converted_img  = tf.image.convert_image_dtype(framebuffer, tf.float32)[tf.newaxis, ...]   
             rgb_tensor = tf.expand_dims(rgb_tensor , 0)
-            response = detector(rgb_tensor)
-            boxes, scores, classes, num_detections = detector(rgb_tensor)
-            pred_labels = classes.numpy().astype('int')[0] 
-            pred_labels = [labels[i] for i in pred_labels]
-            pred_boxes = boxes.numpy()[0].astype('float32')
-            pred_scores = scores.numpy()[0]
-            for score, (ymin,xmin,ymax,xmax), label in zip(pred_scores, pred_boxes, pred_labels):
+            height = rgb_tensor.shape[1] 
+            width = rgb_tensor.shape[2]
+            detector_output = detector(converted_img)
+            detector_output = {key:value.numpy() for key,value in detector_output.items()}
+            boxes = detector_output['detection_boxes']
+            scores = detector_output['detection_scores']
+            class_labels = detector_output['detection_class_entities']
+
+            for i in range(scores.shape[0]):
+                score = scores[i]
                 if score < 0.4:
                     continue
-                ymin = int(ymin)
-                ymax = int(ymax)
-                xmin = int(xmin)
-                xmax = int(xmax)
+                label = class_labels[i].decode()
+                ymin = int(boxes[i][0]*height)
+                xmin = int(boxes[i][1]*width)
+                ymax = int(boxes[i][2]*height)
+                xmax = int(boxes[i][3]*width)
                 score_txt = f'{round(score*100,0)}%'
                 image_text = label+"-"+score_txt
-                framebuffer = cv2.rectangle(framebuffer,(int(xmin), int(ymax)),(int(xmax), int(ymin)),(0,255,0),2)      
-                cv2.putText(framebuffer, image_text,(xmin, max(0,ymin-20)), font, 1.5, (255,255,255), 4, cv2.LINE_AA)
-                # print(image_text)
+                framebuffer = cv2.rectangle(framebuffer,(int(xmin), int(ymax)),(int(xmax), int(ymin)),(0,255,0),1)      
+                cv2.putText(framebuffer, image_text,(xmin, max(0,ymin-20)), font, 1, (255,255,255), 4, cv2.LINE_AA)
             cv2.imshow(rtsp_name, framebuffer)
             cv2.waitKey(100)
     except KeyboardInterrupt:
@@ -64,10 +68,7 @@ def consume_frames(q):
 
 if __name__ == "__main__":
     font = cv2.FONT_HERSHEY_SIMPLEX
-    detector = hub.load("https://tfhub.dev/tensorflow/efficientdet/lite0/detection/1")
-    # detector = hub.load("/Users/rorymclean/Projects/mv22/efficientdet_lite1_detection_1/")
-    labels = pd.read_csv('labels.csv', sep=';', index_col='ID')
-    labels = labels['OBJECT (2017 REL.)']
+    detector = hub.load("https://tfhub.dev/google/faster_rcnn/openimages_v4/inception_resnet_v2/1").signatures['default']
     print("Model Loaded")
     q = Queue()
     producer = Process(target=produce_frames, args=(q,))
