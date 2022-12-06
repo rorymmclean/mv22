@@ -68,7 +68,9 @@ def consume_frames(q):
 
 if __name__ == "__main__":
     font = cv2.FONT_HERSHEY_SIMPLEX
-    detector = hub.load("https://tfhub.dev/google/faster_rcnn/openimages_v4/inception_resnet_v2/1").signatures['default']
+#     detector = hub.load("https://tfhub.dev/google/faster_rcnn/openimages_v4/inception_resnet_v2/1").signatures['default']
+    detector = hub.load("/Users/rorymclean/Projects/mv22/faster_rcnn_openimages_v4_inception_resnet_v2_1/").signatures['default']
+
     print("Model Loaded")
     q = Queue()
     producer = Process(target=produce_frames, args=(q,))

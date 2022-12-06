@@ -70,6 +70,8 @@ def consume_frames(q):
 if __name__ == "__main__":
     font = cv2.FONT_HERSHEY_SIMPLEX
     detector = hub.load("https://tfhub.dev/tensorflow/efficientdet/d6/1")
+    labels = pd.read_csv('labels.csv', sep=';', index_col='ID')
+    labels = labels['OBJECT (2017 REL.)']
     print("Model Loaded")
     q = Queue()
     producer = Process(target=produce_frames, args=(q,))
